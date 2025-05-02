@@ -1,0 +1,77 @@
+{
+	"global": {
+		"snowflake_source_name": "net.snowflake.spark.snowflake",
+		"s3_client_name": "s3",
+		"json_decode": "utf-8",
+		"http_auth_user":"opensearch.net.http.auth.user",
+		"http_auth_pass":"opensearch.net.http.auth.pass"
+
+	},
+	"environment": {
+		"dev":{
+			"snowflake_db_secret_name": "cdp-edw-sf-mirror-glue-dev",
+			"es_secret": "cdp-edw-os-strategic-glue-dev",
+			"database": "ENT_FIRM_DEV_DB",
+			"role": "ENT_FIRM_OWNER_DEV_ROLE",
+			"dynamic_vars":{"$datahubdb":"ENT_FDWDH_DEV","$sensitiverole":"ENT_CDP_SENSITIVE_COMP_DEV_ROLE"},
+			"options":{
+			"opensearch.nodes": "vpc-cdp-os-dev-b5ne3oko4ltuu5ygyjhltatiny.us-east-1.es.amazonaws.com","opensearch.port":443,"opensearch.nodes.wan.only":"true","opensearch.net.ssl":"true","opensearch.output.json":"true","opensearch.spark.dataframe.write.null":"true","opensearch.mapping.id":"jobRolePathId","opensearch.batch.size.entries":1000,"opensearch.batch.size.bytes": "5mb"}
+		},
+		"qa":{
+			"snowflake_db_secret_name": "cdp-edw-sf-mirror-glue-qa",
+			"es_secret": "cdp-edw-os-strategic-glue-qa",
+			"database": "ENT_FIRM_QA_DB",
+			"role": "ENT_FIRM_OWNER_QA_ROLE",
+			"dynamic_vars":{"$datahubdb":"ENT_FDWDH_QA","$sensitiverole":"ENT_CDP_SENSITIVE_COMP_QA_ROLE"},
+			"options": {
+			"opensearch.nodes": "vpc-cdp-os-qa-vk2lfqbwzdu2wnpdo4pyjgzu3e.us-east-1.es.amazonaws.com","opensearch.port":443,"opensearch.nodes.wan.only":"true","opensearch.net.ssl":"true","opensearch.output.json":"true","opensearch.spark.dataframe.write.null":"true","opensearch.mapping.id":"jobRolePathId","opensearch.batch.size.entries":1000,"opensearch.batch.size.bytes": "5mb"}
+		},
+		"prod":{
+			"snowflake_db_secret_name": "cdp-edw-sf-mirror-glue-prod",
+			"es_secret": "cdp-edw-os-strategic-glue-prod",
+			"database": "ENT_FIRM_PROD_DB",
+			"role": "ENT_FIRM_OWNER_PROD_ROLE",
+			"dynamic_vars":{"$datahubdb":"ENT_FDWDH_PROD","$sensitiverole":"ENT_CDP_SENSITIVE_COMP_PROD_ROLE"},
+			"options": {
+			"opensearch.nodes": "vpc-cdp-os-prod-e32i2bbtwqlipdkggcqpsjsjcu.us-east-1.es.amazonaws.com","opensearch.port":443,"opensearch.nodes.wan.only":"true","opensearch.net.ssl":"true","opensearch.output.json":"true","opensearch.spark.dataframe.write.null":"true","opensearch.mapping.id":"jobRolePathId","opensearch.batch.size.entries":1000,"opensearch.batch.size.bytes": "5mb"}
+		}
+	},
+	"job": {
+		"name": "CONSUME_JOBS_SF_TO_ES_GLUE",
+		"spark_options": [
+			"set spark.sql.legacy.timeParserPolicy=LEGACY","set spark.sql.ansi.enabled=True","set spark.sql.storeAssignmentPolicy=ANSI"
+			]
+	},
+	"stages": [
+		{
+			"load_data_from_sf_to_es": {
+				"sources": [
+					{
+						"type": "snowflake",
+						"schema": "DATA",
+						"tmp_vw_query_map":[{"VW_JOB_ROLE_SUB_CATEGORY_REF_TMP_VW":[false,"SELECT JOB_ROLE_SUB_CATEGORY_ID, JOB_ROLE_SUB_CATEGORY_NAME, JOB_ROLE_SUB_CATEGORY_DESC, JOB_ROLE_CATEGORY_ID, FROM_DATE, TO_DATE, ACTIVE_INACTIVE_FLAG FROM VW_JOB_ROLE_SUB_CATEGORY_REF"]},
+						                    {"VW_JOB_ROLE_CATEGORY_REF_TMP_VW":[false,"SELECT JOB_ROLE_CATEGORY_ID, JOB_ROLE_CATEGORY_NAME, JOB_ROLE_CATEGORY_DESC, JOB_ROLE_CATEGORY_CODE, FROM_DATE, TO_DATE, ACTIVE_INACTIVE_FLAG FROM VW_JOB_ROLE_CATEGORY_REF"]},
+											{"VW_JOB_ROLE_PATH_REF_TMP_VW":[false,"SELECT JOB_ROLE_PATH_ID, JOB_ROLE_PATH_NAME, JOB_ROLE_PATH_DESC, JOB_ROLE_SUB_CATEGORY_ID, FROM_DATE, TO_DATE, ACTIVE_INACTIVE_FLAG, JOB_ROLE_PATH_FAMILY_ID, JOB_ROLE_PATH_FAMILY_NAME FROM VW_JOB_ROLE_PATH_REF"]}],
+						"tmp_vw_table_map":[]
+					}]
+
+				,
+				"targets": [
+					{
+						"name": "job",
+						"type": "elasticsearch",
+						"target_es_columns":["jobRoleCategoryId", "jobRoleCategoryName", "jobRoleCategoryDesc", "jobRoleCategoryCode", "jrcFromDate", "jrcToDate", "jrcActiveInactiveFlag", "jobRoleSubCategoryName", "jobRoleSubCategoryDesc", "jobRoleSubCategoryId", "jrscFromDate", "jrscToDate", "jrscActiveInactiveFlag", "jobRolePathId", "jobRolePathName", "jobRolePathDesc", "jrpFromDate", "jrpToDate", "jrpActiveInactiveFlag", "jobRolePathFamilyId", "jobRolePathFamilyName"],
+						"es_index":"job",
+						"es_index_prev": "job_prev",
+						"es_index_alias":"job_alias",
+						"region":"us-east-1",
+						"write_mode":"append",
+						"write_format":"org.opensearch.spark.sql",
+						"tzvalue":"America/New_York",
+						"schema_key":"CDP-API-Schemas/Strategic-ES-Schemas/job.json"
+					}
+				]
+			}
+		}
+		]
+}
